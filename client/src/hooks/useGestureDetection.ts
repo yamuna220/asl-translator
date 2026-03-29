@@ -2,8 +2,8 @@ import type { NormalizedLandmarkList } from '@mediapipe/hands';
 import { useCallback, useRef, useState } from 'react';
 import { matchGestureFromLandmarks } from '../utils/gestureMapper';
 
-const HOLD_MS = 800;
-const MIN_CONFIDENCE = 0.75;
+const HOLD_MS = 400;
+const MIN_CONFIDENCE = 0.65;
 
 export type DetectedChip = { word: string; confidence: number; id: string; at: number };
 

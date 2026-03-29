@@ -45,12 +45,9 @@ export default function App() {
             }}
           />
           <Routes>
-            <Route path="/login" element={<LoginRoute />} />
             <Route
               element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
+                <Layout />
               }
             >
               <Route index element={<Dashboard />} />

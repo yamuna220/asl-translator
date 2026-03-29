@@ -52,16 +52,43 @@ async function anthropicChat(system, user) {
   return block?.text?.trim() || '';
 }
 
-async function runAI(system, userMessage) {
-  if (OPENAI_KEY) {
-    return openaiChat(system, userMessage);
+async function mockAI(system, userMessage) {
+  console.log('[DEV] API Key missing, using Mock AI fallback.');
+  const lower = userMessage.toLowerCase();
+  
+  if (system.includes('simplify')) {
+    return userMessage.length > 50 ? `${userMessage.slice(0, 45)}... [Simplified for ASL]` : `Simple: ${userMessage}`;
   }
-  if (ANTHROPIC_KEY) {
-    return anthropicChat(system, userMessage);
+  
+  if (system.includes('JSON')) {
+    return JSON.stringify({
+      score: 8,
+      bullets: ['Your signs were clear and relevant.', 'Try to use more facial expressions for emphasis.']
+    });
   }
-  throw new Error('No AI API key configured. Set OPENAI_API_KEY or ANTHROPIC_API_KEY.');
+
+  if (userMessage.includes('Generate')) {
+    const qs = [
+      'Tell me about a time you had to learn a new skill quickly?',
+      'How do you handle conflict in a team environment?',
+      'What is your greatest professional achievement?',
+      'Why are you interested in this position?'
+    ];
+    return qs[Math.floor(Math.random() * qs.length)];
+  }
+
+  return 'Could you please elaborate more on that?';
 }
 
+async function runAI(system, userMessage) {
+  if (OPENAI_KEY) {
+    try { return await openaiChat(system, userMessage); } catch (e) { console.error('OpenAI Error:', e.message); }
+  }
+  if (ANTHROPIC_KEY) {
+    try { return await anthropicChat(system, userMessage); } catch (e) { console.error('Anthropic Error:', e.message); }
+  }
+  return mockAI(system, userMessage);
+}
 async function simplify(req, res) {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {

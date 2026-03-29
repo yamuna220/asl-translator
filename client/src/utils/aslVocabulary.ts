@@ -7,10 +7,21 @@ export type SignPattern = {
 
 /** 50+ common interview-relevant signs — heuristic patterns for demo matching */
 export const ASL_VOCABULARY: SignPattern[] = [
-  { word: 'yes', pattern: [0, 0, 1, 0, 0] },
+  /** Starter Pack - Extremely Simple Signs */
+  { word: 'one', pattern: [0, 1, 0, 0, 0] },
+  { word: 'two', pattern: [0, 1, 1, 0, 0] },
+  { word: 'three', pattern: [1, 1, 1, 0, 0] },
+  { word: 'four', pattern: [0, 1, 1, 1, 1] },
+  { word: 'five', pattern: [1, 1, 1, 1, 1] },
+  { word: 'L shape', pattern: [1, 1, 0, 0, 0] },
+  { word: 'V shape', pattern: [0, 1, 1, 0, 0] },
+  { word: 'OK', pattern: [0, 0, 1, 1, 1] },
+  { word: 'I Love You', pattern: [1, 1, 0, 0, 1] },
+  { word: 'Hello', pattern: [1, 1, 1, 1, 1] },
+
+  /** General Vocabulary */
+  { word: 'yes', pattern: [0, 0, 0, 0, 0] }, // Fist (all folded)
   { word: 'no', pattern: [0, 1, 1, 0, 0] },
-  { word: 'thank you', pattern: [1, 1, 0, 0, 0] },
-  { word: 'hello', pattern: [1, 0, 0, 0, 1] },
   { word: 'understand', pattern: [0, 1, 0, 1, 0] },
   { word: 'please', pattern: [1, 0, 1, 0, 0] },
   { word: 'name', pattern: [0, 1, 1, 1, 1] },

@@ -37,8 +37,23 @@ app.use((err, req, res, next) => {
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.log('MongoDB Connected');
+    let finalUri = MONGODB_URI;
+
+    // Auto-spin up memory server if running locally with localhost connection string
+    if (process.env.NODE_ENV !== 'production' && (!process.env.VERCEL) && (MONGODB_URI.includes('127.0.0.1') || MONGODB_URI.includes('localhost'))) {
+      try {
+        const pkg = 'mongodb-memory-server';
+        const { MongoMemoryServer } = require(pkg);
+        const mongoServer = await MongoMemoryServer.create();
+        finalUri = mongoServer.getUri();
+        console.log(`[DEV] Auto-Started In-Memory Database! Test data is temporary.`);
+      } catch (err) {
+        console.warn('[DEV] Memory server package missing, attempting standard connection.');
+      }
+    }
+
+    await mongoose.connect(finalUri);
+    console.log('MongoDB Connected.');
   } catch (error) {
     console.error('MongoDB connection failed:', error.message);
   }

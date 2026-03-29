@@ -22,25 +22,19 @@ type AuthState = {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserDTO | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<UserDTO | null>({
+    id: 'guest-id',
+    name: 'Guest User',
+    email: 'guest@example.com',
+    role: 'candidate',
+  });
+  const [token, setToken] = useState<string | null>('guest-token');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem(STORAGE_KEY);
-    const u = localStorage.getItem(USER_KEY);
-    if (t) setAuthToken(t);
-    if (u) {
-      try {
-        setUser(JSON.parse(u) as UserDTO);
-      } catch {
-        localStorage.removeItem(USER_KEY);
-      }
-    }
-    setToken(t);
-    setLoading(false);
+    // Guest Mode: Automatically set auth token
+    setAuthToken('guest-token');
   }, []);
-
   const login = useCallback(async (email: string, password: string) => {
     const data = await loginRequest(email, password);
     localStorage.setItem(STORAGE_KEY, data.token);

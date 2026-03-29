@@ -47,10 +47,25 @@ export function useSpeechRecognition() {
       if (finalText) setTranscript((t) => (t + ' ' + finalText).trim());
       setInterim(interimText);
     };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
+    rec.onerror = (e) => {
+      console.warn('Speech error:', e.error);
+      if (e.error === 'no-speech' || e.error === 'aborted') {
+          // Silent restart
+          return;
+      }
+      setListening(false);
+    };
+    rec.onend = () => {
+      // Auto-restart if we think we should still be listening
+      if (gateRef.current) {
+        try { rec.start(); } catch { setListening(false); }
+      } else {
+        setListening(false);
+      }
+    };
     recRef.current = rec;
     try {
+      gateRef.current = true;
       rec.start();
       setListening(true);
     } catch {
@@ -59,16 +74,14 @@ export function useSpeechRecognition() {
   }, []);
 
   const stop = useCallback(() => {
+    gateRef.current = false;
     try {
       recRef.current?.stop();
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
     recRef.current = null;
     setListening(false);
     setInterim('');
   }, []);
-
   const resetTranscript = useCallback(() => {
     setTranscript('');
     setInterim('');
