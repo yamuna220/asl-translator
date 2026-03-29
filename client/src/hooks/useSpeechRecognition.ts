@@ -16,6 +16,7 @@ export function useSpeechRecognition() {
   const [interim, setInterim] = useState('');
   const [supported, setSupported] = useState(true);
   const recRef = useRef<SpeechRecognition | null>(null);
+  const gateRef = useRef(false);
 
   useEffect(() => {
     const Ctor = getRecognitionCtor();
@@ -47,7 +48,7 @@ export function useSpeechRecognition() {
       if (finalText) setTranscript((t) => (t + ' ' + finalText).trim());
       setInterim(interimText);
     };
-    rec.onerror = (e) => {
+    rec.onerror = (e: any) => {
       console.warn('Speech error:', e.error);
       if (e.error === 'no-speech' || e.error === 'aborted') {
           // Silent restart
