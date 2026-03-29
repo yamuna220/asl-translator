@@ -37,10 +37,12 @@ function fingerExtensionScoreAngle(mcp: NormalizedLandmark, pip: NormalizedLandm
   return clamp01((angNorm - 0.35) / 0.5);
 }
 
-/** Finger extension estimates [thumb, index, middle, ring, pinky] in 0–1 */
-export function extractFingerStates(landmarks: NormalizedLandmark[]): [number, number, number, number, number] {
+/** Enhanced finger states: [thumb, index, middle, ring, pinky, thumbTuck, spreadUV] */
+export type HandFeatureVector = [number, number, number, number, number, number, number];
+
+export function extractFingerStates(landmarks: NormalizedLandmark[]): HandFeatureVector {
   if (!landmarks || landmarks.length < 21) {
-    return [0, 0, 0, 0, 0];
+    return [0, 0, 0, 0, 0, 0, 0];
   }
   const lm = landmarks;
   const w = lm[0];
@@ -49,15 +51,23 @@ export function extractFingerStates(landmarks: NormalizedLandmark[]): [number, n
     const ratio = dist(w, lm[tipIdx]) / Math.max(1e-6, dist(w, lm[pipIdx]));
     const distanceScore = clamp01((ratio - 1) / 0.8);
     const angleScore = fingerExtensionScoreAngle(lm[mcpIdx], lm[pipIdx], lm[tipIdx]);
-    // Blend: distance gives quick response, angle stabilizes for different hand sizes.
     return clamp01(distanceScore * 0.45 + angleScore * 0.55);
   };
 
   const thumbExtended = () => {
-    const tipToIndex = dist(lm[4], lm[5]);
-    const ipToIndex = dist(lm[3], lm[5]);
-    const ratio = tipToIndex / Math.max(1e-6, ipToIndex);
-    return clamp01((ratio - 0.85) / 0.5);
+    return clamp01((dist(lm[4], lm[17]) / Math.max(1e-6, dist(lm[2], lm[17]))) - 0.7);
+  };
+
+  /** Proximity of thumb tip to index/middle keys for mapping A, S, T, M, N */
+  const thumbTuck = () => {
+    const dIndex = dist(lm[4], lm[5]);
+    const dMiddle = dist(lm[4], lm[9]);
+    return clamp01(1 - (Math.min(dIndex, dMiddle) / 0.15));
+  };
+
+  /** Spread between index and middle (V vs U) */
+  const spreadUV = () => {
+    return clamp01((dist(lm[8], lm[12]) / 0.2) - 0.2);
   };
 
   return [
@@ -66,23 +76,24 @@ export function extractFingerStates(landmarks: NormalizedLandmark[]): [number, n
     digitExtension(9, 11, 12), // middle
     digitExtension(13, 15, 16), // ring
     digitExtension(17, 19, 20), // pinky
+    thumbTuck(),
+    spreadUV()
   ];
 }
 
-function patternSimilarity(
-  observed: [number, number, number, number, number],
-  target: [number, number, number, number, number]
-): number {
+function patternSimilarity(observed: HandFeatureVector, target: HandFeatureVector): number {
   let sum = 0;
-  for (let i = 0; i < 5; i++) {
-    sum += 1 - Math.abs(observed[i] - target[i]);
+  for (let i = 0; i < target.length; i++) {
+    const diff = Math.abs(observed[i] - target[i]);
+    // Soften penalty to make it feel natural, not robotic
+    sum += Math.max(0, 1 - (diff * 1.25)); 
   }
-  return sum / 5;
+  return sum / target.length;
 }
 
 export type MatchResult = { word: string; confidence: number };
 
-export function matchGesture(observed: [number, number, number, number, number]): MatchResult | null {
+export function matchGesture(observed: HandFeatureVector): MatchResult | null {
   let best: MatchResult | null = null;
   for (const entry of ASL_VOCABULARY) {
     const confidence = patternSimilarity(observed, entry.pattern);

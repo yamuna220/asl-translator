@@ -1,32 +1,17 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { Layout } from './components/Layout';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { Skeleton } from './components/Skeleton';
-import { AuthProvider, useAuth } from './context/AuthContext';
+
+import { AuthProvider } from './context/AuthContext';
 import { SessionProvider } from './context/SessionContext';
 import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
 import { LiveTranslator } from './pages/LiveTranslator';
-import { Login } from './pages/Login';
+
 import { MockInterview } from './pages/MockInterview';
 import { Settings } from './pages/Settings';
 
-function LoginRoute() {
-  const { token, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0A0A0F]">
-        <div className="w-64 space-y-3">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      </div>
-    );
-  }
-  if (token) return <Navigate to="/" replace />;
-  return <Login />;
-}
+
 
 export default function App() {
   return (

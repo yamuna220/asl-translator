@@ -1,9 +1,11 @@
 import { useGestureDetection } from '../hooks/useGestureDetection';
 import { useMediaPipe, type HandsFrameResult } from '../hooks/useMediaPipe';
+import { useNeuralModel } from '../hooks/useNeuralModel';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { matchGestureFromLandmarks } from '../utils/gestureMapper';
 
 type Props = {
   signingActive: boolean;
@@ -15,6 +17,16 @@ export function ASLGestureCamera({ signingActive, onSigningChange, onSentenceCha
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gateRef = useRef(false);
+  const lastTimeRef = useRef(0);
+  const [lastPrediction, setLastPrediction] = useState<string>('');
+  const [confidence, setConfidence] = useState(0);
+  
+  const { predict } = useNeuralModel();
+  const windowRef = useRef<string[]>([]);
+  const WINDOW_SIZE = 12;
+  const MIN_CONSENSUS = 8;
+
+
   const { chips, sentence, processLandmarks, clearOutput, setSentence } = useGestureDetection();
 
   useEffect(() => {
@@ -23,9 +35,67 @@ export function ASLGestureCamera({ signingActive, onSigningChange, onSentenceCha
 
   const onFrame = useCallback(
     (res: HandsFrameResult) => {
-      if (gateRef.current) processLandmarks(res.landmarks);
+      if (!gateRef.current || !res.landmarks) {
+        setConfidence(0);
+        return;
+      }
+
+      const landmarks = res.landmarks;
+      const prediction = predict(res.landmarks);
+      let detectedWord = '';
+      let detectedConf = 0;
+      
+      if (prediction) {
+        detectedWord = prediction.word;
+        detectedConf = prediction.confidence;
+      } else {
+        // FALLBACK: Use heuristic matching with optimized threshold
+        const heuristic = matchGestureFromLandmarks(landmarks);
+        if (heuristic && heuristic.confidence > 0.78) {
+          detectedWord = heuristic.word;
+          detectedConf = heuristic.confidence;
+        }
+      }
+
+      if (detectedWord && detectedConf > 0.78) {
+        setConfidence(Math.round(detectedConf * 100));
+        
+        // Add valid word to window history
+        windowRef.current.push(detectedWord);
+      } else {
+        setConfidence(0);
+        // Force decay: add empty frame so old signs get flushed out
+        windowRef.current.push(''); 
+      }
+      
+      // Enforce sliding window size
+      if (windowRef.current.length > WINDOW_SIZE) windowRef.current.shift();
+      
+      // Majority Voting (count only actual words, not empty frames)
+      const counts = windowRef.current.reduce((acc: Record<string, number>, w) => {
+        if (w) acc[w] = (acc[w] || 0) + 1;
+        return acc;
+      }, {});
+      
+      const sorted = Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number));
+      const top = sorted.length > 0 ? sorted[0] : null;
+
+      if (top && top[1] >= MIN_CONSENSUS) {
+        setLastPrediction(top[0]);
+        const now = Date.now();
+        // Send to detection hook if enough time has passed
+        if (now - lastTimeRef.current > 1200) {
+          processLandmarks(landmarks);
+          lastTimeRef.current = now;
+        }
+      } else {
+        // Not enough consensus yet, keep trying
+        if (windowRef.current.every((w) => w === '')) {
+            setLastPrediction('');
+        }
+      }
     },
-    [processLandmarks]
+    [predict, processLandmarks]
   );
 
   const { start, stop, running } = useMediaPipe(onFrame, videoRef, canvasRef);
@@ -72,6 +142,16 @@ export function ASLGestureCamera({ signingActive, onSigningChange, onSentenceCha
         {!running && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm text-[#8B8BA7]">
             Start signing to enable the camera
+          </div>
+        )}
+        {running && (
+          <div className="absolute right-4 top-4 flex flex-col items-end gap-2">
+            {confidence > 0 && (
+              <div className="flex items-center gap-2 rounded-full bg-[#6C63FF]/30 px-3 py-1 text-xs font-bold text-white backdrop-blur border border-[#6C63FF]/50">
+                <span className="h-2 w-2 animate-ping rounded-full bg-[#00D4FF]" />
+                Tracking: {lastPrediction} ({confidence}%)
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: 'candidate',
   });
   const [token, setToken] = useState<string | null>('guest-token');
-  const [loading, setLoading] = useState(false);
+
 
   useEffect(() => {
     // Guest Mode: Automatically set auth token
@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, token, loading, login, register, logout }),
-    [user, token, loading, login, register, logout]
+    () => ({ user, token, loading: false, login, register, logout }),
+    [user, token, login, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

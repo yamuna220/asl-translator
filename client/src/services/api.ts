@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.VITE_API_URL || '';
+const isProd = import.meta.env.PROD || !!import.meta.env.VITE_VERCEL;
+const defaultBaseURL = isProd ? '' : 'http://localhost:4000';
+const baseURL = import.meta.env.VITE_API_URL || defaultBaseURL;
 
 export const api = axios.create({
   baseURL: baseURL || undefined,

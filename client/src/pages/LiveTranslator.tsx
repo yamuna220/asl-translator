@@ -24,7 +24,9 @@ export function LiveTranslator() {
   const [fontSize, setFontSize] = useState<FontSize>('normal');
   const [candidateOut, setCandidateOut] = useState('');
   const [seconds, setSeconds] = useState(0);
+  const [isStarted, setIsStarted] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const compact = localStorage.getItem('sb_compact') === 'true';
   const timerRef = useRef<number | null>(null);
   const secondsRef = useRef(0);
   const candidateOutRef = useRef('');
@@ -48,13 +50,15 @@ export function LiveTranslator() {
   }, [simplified]);
 
   useEffect(() => {
+    if (!isStarted) return;
     timerRef.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [isStarted]);
 
   useEffect(() => {
+    if (!isStarted) return;
     // Create the session immediately; subsequent changes are auto-saved to history.
     const init = async () => {
       const doc = await saveSession({
@@ -70,7 +74,7 @@ export function LiveTranslator() {
     void init();
     // Intentionally run once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saveSession]);
+  }, [isStarted, saveSession]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -111,7 +115,8 @@ export function LiveTranslator() {
   const speakSimplified = () => {
     if (!simplified) return;
     const u = new SpeechSynthesisUtterance(simplified);
-    u.rate = 0.9;
+    const rate = Number(localStorage.getItem('sb_speech_rate')) || 0.95;
+    u.rate = rate;
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   };
@@ -146,7 +151,7 @@ export function LiveTranslator() {
   }, [candidateOut, seconds, saveSession, simplified, speech, sessionId, updateSession]);
 
   return (
-    <div className="mx-auto max-w-[1400px] pb-24">
+    <div className={`mx-auto max-w-[1400px] pb-24 ${compact ? 'px-4' : ''}`}>
       <h1 className="mb-6 text-2xl font-semibold text-white">Live Translator</h1>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -240,14 +245,36 @@ export function LiveTranslator() {
       </div>
 
       <div className="fixed bottom-0 left-64 right-0 z-30 flex items-center justify-between border-t border-white/10 bg-[#12121A]/95 px-8 py-4 backdrop-blur">
-        <div className="font-mono text-lg text-[#00D4FF]">{mmss}</div>
-        <button
-          type="button"
-          onClick={() => void endSession()}
-          className="rounded-xl bg-red-600/90 px-6 py-2 font-semibold text-white transition hover:bg-red-500"
-        >
-          End Session
-        </button>
+        <div className="flex items-center gap-6">
+          <div className="font-mono text-lg text-[#00D4FF]">{mmss}</div>
+          {!isStarted ? (
+            <button
+              type="button"
+              onClick={() => setIsStarted(true)}
+              className="rounded-xl bg-[#6C63FF] px-6 py-2 font-semibold text-white transition hover:brightness-110 active:scale-95 shadow-lg shadow-[#6C63FF]/20"
+            >
+              Start Session
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-[#00FF94]">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#00FF94]" />
+              Session Active
+            </div>
+          )}
+        </div>
+        {isStarted && (
+          <button
+            type="button"
+            onClick={() => {
+              if (timerRef.current) clearInterval(timerRef.current);
+              setIsStarted(false);
+              void endSession();
+            }}
+            className="rounded-xl bg-red-600/90 px-6 py-2 font-semibold text-white transition hover:bg-red-500 active:scale-95"
+          >
+            End Session
+          </button>
+        )}
       </div>
     </div>
   );

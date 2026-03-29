@@ -53,31 +53,38 @@ async function anthropicChat(system, user) {
 }
 
 async function mockAI(system, userMessage) {
-  console.log('[DEV] API Key missing, using Mock AI fallback.');
-  const lower = userMessage.toLowerCase();
+  console.log('[DEV] API Key missing or invalid, using Mock AI fallback.');
+  const sys = (system || '').toLowerCase();
+  const usr = (userMessage || '').toLowerCase();
   
-  if (system.includes('simplify')) {
-    return userMessage.length > 50 ? `${userMessage.slice(0, 45)}... [Simplified for ASL]` : `Simple: ${userMessage}`;
+  if (sys.includes('simplify') || usr.includes('simplify')) {
+    return userMessage.length > 50 
+      ? `Simple: ${userMessage.slice(0, 45)}... (Simplified version)` 
+      : `Simple: ${userMessage}`;
   }
   
-  if (system.includes('JSON')) {
+  if (sys.includes('json') || sys.includes('evaluate')) {
     return JSON.stringify({
       score: 8,
-      bullets: ['Your signs were clear and relevant.', 'Try to use more facial expressions for emphasis.']
+      bullets: [
+        'Great clarity in your signs today.',
+        'Try to expand on your technical examples for a higher score.'
+      ]
     });
   }
 
-  if (userMessage.includes('Generate')) {
+  if (usr.includes('generate') || usr.includes('question')) {
     const qs = [
       'Tell me about a time you had to learn a new skill quickly?',
       'How do you handle conflict in a team environment?',
       'What is your greatest professional achievement?',
-      'Why are you interested in this position?'
+      'Describe a situation where you had to work under pressure.',
+      'Why do you want to work for our company?'
     ];
     return qs[Math.floor(Math.random() * qs.length)];
   }
 
-  return 'Could you please elaborate more on that?';
+  return 'Could you please provide more details? (Mock response)';
 }
 
 async function runAI(system, userMessage) {
@@ -90,6 +97,7 @@ async function runAI(system, userMessage) {
   return mockAI(system, userMessage);
 }
 async function simplify(req, res) {
+  console.log('[AI] Simplify Request Received:', req.body.question?.slice(0, 30));
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -101,10 +109,10 @@ async function simplify(req, res) {
     const simplified = await runAI(system, question);
     res.json({ simplified });
   } catch (e) {
-    console.error(e);
-    res.status(502).json({
-      message: e.message || 'AI request failed',
-      fallback: req.body.question,
+    console.warn(`[AI] Simplify Failure: ${e.message}`);
+    res.status(200).json({
+      simplified: req.body.question || 'Could you repeat that more simply?',
+      error: e.message,
     });
   }
 }
@@ -116,31 +124,48 @@ async function feedback(req, res) {
   }
   try {
     const { words, role } = req.body;
-    const wordList = Array.isArray(words) ? words.join(', ') : String(words);
+    const wordList = Array.isArray(words) ? words.join(', ') : String(words || '');
     const system =
       'You evaluate short ASL-signed interview answers. Respond in JSON only with keys: score (number 0-10), bullets (array of exactly 2 strings). No markdown.';
     const user = `The candidate signed these words in an ASL interview response: [${wordList}]. Role context: ${role || 'general'}. Evaluate the response for relevance, completeness, and clarity. Give a score out of 10 and 2 bullet points of constructive feedback in simple language.`;
-    const raw = await runAI(system, user);
-    let parsed = null;
+    
+    let raw = await runAI(system, user);
+    let parsed = { score: 5, bullets: ['Response evaluation pending.', 'Continue practicing your signs.'] };
+    
     try {
-      parsed = JSON.parse(raw);
-    } catch {
+      // Robust JSON detection in case AI adds markdown
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : raw;
+      parsed = JSON.parse(jsonStr);
+    } catch (parseError) {
+      console.warn('AI JSON Parse Failed, using regex fallback:', parseError.message);
       const scoreMatch = raw.match(/score["']?\s*[:=]\s*([\d.]+)/i);
-      const score = scoreMatch ? Math.min(10, Math.max(0, parseFloat(scoreMatch[1]))) : 5;
-      parsed = { score, bullets: [raw.slice(0, 120), raw.slice(120, 240) || 'Keep practicing clear signs.'] };
+      if (scoreMatch) parsed.score = Math.min(10, Math.max(0, parseFloat(scoreMatch[1])));
+      
+      // Try to find bullets or just use the raw text split
+      const bulletMatch = raw.match(/bullets?["']?\s*[:=]\s*\[([\s\S]*?)\]/i);
+      if (bulletMatch) {
+         try { parsed.bullets = JSON.parse(`[${bulletMatch[1]}]`); } catch { /* ignore */ }
+      }
     }
+
     res.json({
       score: typeof parsed.score === 'number' ? parsed.score : Number(parsed.score) || 0,
-      bullets: Array.isArray(parsed.bullets) ? parsed.bullets.slice(0, 2) : [],
-      raw,
+      bullets: Array.isArray(parsed.bullets) ? parsed.bullets.slice(0, 2) : parsed.bullets ? [String(parsed.bullets)] : [],
+      raw: process.env.NODE_ENV === 'production' ? undefined : raw,
     });
   } catch (e) {
-    console.error(e);
-    res.status(502).json({ message: e.message || 'AI feedback failed' });
+    console.error('Feedback Error:', e);
+    res.status(200).json({ 
+      score: 5, 
+      bullets: ['AI service currently busy.', 'Please try again in a moment.'],
+      error: e.message 
+    });
   }
 }
 
 async function generateQuestion(req, res) {
+  console.log('[AI] Generate Question Received:', req.body.role, req.body.difficulty);
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
@@ -153,8 +178,17 @@ async function generateQuestion(req, res) {
     const question = await runAI(system, user);
     res.json({ question });
   } catch (e) {
-    console.error(e);
-    res.status(502).json({ message: e.message || 'AI generate failed' });
+    console.warn(`[AI] GenerateFailure: ${e.message}`);
+    // Return a guaranteed mock question on any catastrophic error
+    const fallbackQs = [
+      'Tell me about a time you had to learn a new skill quickly?',
+      'How do you handle conflict in a team environment?',
+      'What is your greatest professional achievement?'
+    ];
+    res.status(200).json({ 
+      question: fallbackQs[Math.floor(Math.random() * fallbackQs.length)],
+      error: e.message 
+    });
   }
 }
 

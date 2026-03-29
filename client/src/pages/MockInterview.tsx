@@ -22,6 +22,8 @@ export function MockInterview() {
   const [online, setOnline] = useState(true);
   const [role, setRole] = useState<RoleKey>('Software Engineer');
   const [difficulty, setDifficulty] = useState<(typeof DIFFICULTIES)[number]>('Mid Level');
+  const [isStarted, setIsStarted] = useState(false);
+  const compact = localStorage.getItem('sb_compact') === 'true';
   const [queue, setQueue] = useState<string[]>([]);
   const [currentQ, setCurrentQ] = useState('');
   const [simplified, setSimplified] = useState('');
@@ -57,14 +59,17 @@ export function MockInterview() {
   const generateQuestion = async () => {
     setLoadingQ(true);
     setFeedback(null);
+    console.log('[DEBUG] Generating question for:', role, difficulty);
     try {
       if (online) {
         const q = await AiService.generateQuestion(role, difficulty);
+        console.log('[DEBUG] AI Question Received:', q);
         setCurrentQ(q);
         try {
           const simp = await AiService.simplify(q);
           setSimplified(simp);
-        } catch {
+        } catch (err) {
+          console.warn('[DEBUG] Simplify failed, using raw:', err);
           setSimplified(q);
         }
       } else {
@@ -81,8 +86,9 @@ export function MockInterview() {
       }
       setTimer(90);
       setTimerActive(true);
-      toast.success('New question');
-    } catch {
+      toast.success('New question ready');
+    } catch (err) {
+      console.error('[DEBUG] Generate Question Error:', err);
       toast.error('Could not generate question');
     } finally {
       setLoadingQ(false);
@@ -127,7 +133,7 @@ export function MockInterview() {
   const shuffleQueue = () => setQueue(shuffle([...queue]));
 
   return (
-    <div className="mx-auto max-w-6xl pb-28">
+    <div className={`mx-auto max-w-6xl pb-28 ${compact ? 'px-4' : ''}`}>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-white">Mock Interview</h1>
         <div className="flex items-center gap-3">
@@ -297,6 +303,48 @@ export function MockInterview() {
             )}
           </AnimatePresence>
         </div>
+      </div>
+      <div className="fixed bottom-0 left-64 right-0 z-30 flex items-center justify-between border-t border-white/10 bg-[#12121A]/95 px-8 py-4 backdrop-blur">
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase text-[#8B8BA7]">Rounds</span>
+            <span className="font-mono text-lg text-white">{rounds}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase text-[#8B8BA7]">Avg Score</span>
+            <span className="font-mono text-lg text-[#00FF94]">
+              {rounds > 0 ? (sessionScore / rounds).toFixed(1) : '—'}
+            </span>
+          </div>
+          {!isStarted ? (
+            <button
+              type="button"
+              onClick={() => setIsStarted(true)}
+              className="ml-4 rounded-xl bg-[#6C63FF] px-8 py-2 font-semibold text-white transition hover:brightness-110 active:scale-95 shadow-lg shadow-[#6C63FF]/20"
+            >
+              Start Interview
+            </button>
+          ) : (
+            <div className="ml-4 flex items-center gap-2 text-xs text-[#00FF94]">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-[#00FF94]" />
+              Session Live
+            </div>
+          )}
+        </div>
+        
+        {isStarted && (
+          <button
+            type="button"
+            onClick={() => {
+              setTimerActive(false);
+              setIsStarted(false);
+              toast.success('Interview session ended');
+            }}
+            className="rounded-xl bg-red-600/90 px-6 py-2 font-semibold text-white transition hover:bg-red-500 active:scale-95"
+          >
+            End Interview
+          </button>
+        )}
       </div>
     </div>
   );

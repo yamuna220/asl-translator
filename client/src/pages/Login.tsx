@@ -47,8 +47,8 @@ export function Login() {
       >
         <div className="mb-8 flex flex-col items-center text-center">
           <BridgeLogo className="mb-4 h-24 w-auto" />
-          <h1 className="text-3xl font-semibold tracking-tight text-white">SignBridge</h1>
-          <p className="mt-2 text-lg italic text-[#8B8BA7]">&quot;Your voice, translated.&quot;</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-white">ASL-SignBridge</h1>
+          <p className="mt-2 text-lg italic text-[#8B8BA7]">AI based Interview translator</p>
         </div>
 
         <div className="glass gradient-border-active rounded-2xl p-8 shadow-2xl shadow-black/40">

@@ -13,6 +13,7 @@
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/drawing_utils": "^0.3.1675466124",
     "@mediapipe/hands": "^0.4.1675469240",
+    "@tensorflow/tfjs": "^4.22.0",
     "axios": "^1.14.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

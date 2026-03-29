@@ -24,8 +24,8 @@ export function Sidebar() {
           SB
         </div>
         <div className="text-left">
-          <div className="text-sm font-semibold tracking-wide text-white">SignBridge</div>
-          <div className="text-xs text-[#8B8BA7]">Interview translator</div>
+          <div className="text-sm font-semibold tracking-wide text-white">ASL-SignBridge</div>
+          <div className="text-xs text-[#8B8BA7]">AI based Interview translator</div>
         </div>
       </div>
 

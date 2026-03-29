@@ -14,9 +14,12 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/signbr
 const app = express();
 
 app.use(helmet());
+const isVercel = !!process.env.VERCEL;
+const clientOrigin = process.env.CLIENT_ORIGIN || (isVercel ? true : 'http://localhost:5173');
+
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    origin: clientOrigin,
     credentials: true,
   })
 );

@@ -3,7 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import { matchGestureFromLandmarks } from '../utils/gestureMapper';
 
 const HOLD_MS = 400;
-const MIN_CONFIDENCE = 0.65;
+const getMinConfidence = () => Number(localStorage.getItem('sb_confidence')) || 0.65;
 
 export type DetectedChip = { word: string; confidence: number; id: string; at: number };
 
@@ -40,7 +40,7 @@ export function useGestureDetection() {
         return;
       }
       const match = matchGestureFromLandmarks(landmarks);
-      if (!match || match.confidence < MIN_CONFIDENCE) {
+      if (!match || match.confidence < getMinConfidence()) {
         holdStartRef.current = null;
         stableWordRef.current = null;
         return;
